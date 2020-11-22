@@ -66,15 +66,17 @@ int main()
 
 int, size_t, char где-то в памяти компьютера:
 
-
-![Имя изображения](./imgs/vars_in_memory.png)
-
+<div>
+  <img src="./imgs/vars_in_memory.png" width="200">
+</div>
+<br>
 
 s_gnl_struct где-то в памяти:
 
-
-![Имя изображения](./imgs/vars_in_memory.png)
-
+<div>
+  <img src="./imgs/struct_in_memory.png" width="300">
+</div>
+<br>
 
 Причина, почему под char выделяется 4 байта (**ТАК БЫВАЕТ НЕ ВСЕГДА**) - тема отдельного топика. Можно погуглить _padding in memory_, например вот [хорошая статья про выравнивание структур в Си](https://fresh2refresh.com/c-programming/c-structure-padding/#:~:text=In%20order%20to%20align%20the,concept%20is%20called%20structure%20padding.)
 
