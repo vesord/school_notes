@@ -108,6 +108,171 @@ int main()
 
 * Шаг 4: найти место где утекло именно у вас
 
-В примере видно, что в функции `main` был вызван `malloc`. Утекла именно та память, которую выделил этот маллок.
+В примере видно, что в блоке defenetly lost в функции `main` был вызван `malloc`. Утекла именно та память, которую выделил этот маллок.
 
-Я слышал много мнений о том, что утекшая память - это не освобождённая ( `free()` ) память. Это верно, но есть нюансы. 
+<div>
+  <img src="./imgs/leaks_step4.png" width="200">
+</div>
+<br>
+
+* Шаг 5: найти и исправить утечку
+
+```C
+#include <stdlib.h>
+#include <unistd.h>
+
+int main()
+{
+    char *str;
+    
+    str = malloc(sizeof(*str) * 20);                                                                     
+    *str = 'a';                           
+    *(str + 3) = 'd';                    
+                                            
+    free(str);                      // память не потеряна, утечка устранена
+    str = NULL;                     // перезаписывать str безопасно
+    
+    free(str);
+    return (0);
+}
+
+```
+
+После того, как мы поправим утечку, валгринд не обнаружит проблем.
+
+<div>
+  <img src="./imgs/leaks_step5.png" width="200">
+</div>
+<br>
+
+P.S. `valgrind` не "родной" для мака! Поэтому иногда **он может ошибаться**. Посмотрите [гайд amatilda](https://github.com/daniiomir/faq_for_school_21/blob/master/docs/memory_leaks_amatilda.pdf) в каких случаях валгрин считает за утечку то, что не является утечкой. 
+
+### leaks
+
+Это родная для мака програма для поиска утечек для вашей программы. Хотя она и чекает менее тщательно (тут нужно сделать оговорку, что я не изучал leaks глубоко, просто пытался им пользоваться и делюсь опытом), её можно использовать.
+
+* Шаг 1: "Подвешиваем" выполнение нашей программы
+
+```C
+#include <stdlib.h>
+#include <unistd.h>
+
+int main()
+{
+    char *str;
+    
+    str = malloc(sizeof(*str) * 20);
+    *str = 'a';                     
+    *(str + 3) = 'd';                     
+    str = NULL;
+    free(str);
+    while (1)         // программа никогда не завершит свою работу штатно
+        ;
+    return (0);
+}
+```
+
+* Шаг 2 и 3: запускаем программу в одном терминале, leaks - в другом
+
+<div>
+  <img src="./imgs/leaks_step7.png" width="200">
+</div>
+<br>
+
+Мы точно знаем, что указатель утёк, однако leaks не считает это проблемой :/ 
+
+Подробности этого поведения конечно же есть [тут](www.google.com).
+
+## Нужно ли освобождать память перед выходом из программы?
+
+Да, но это не обязательно (почти). Ха-ха, какой понятный ответ :)
+
+После завершения работы вашей программы вся память, которую операционная система дала вашей программе, освободится сама (снова станет доступна системе). Но так бывает не всегда, немного больше подробностей в [гайде amatilda](https://github.com/daniiomir/faq_for_school_21/blob/master/docs/memory_leaks_amatilda.pdf). 
+
+
+### Если valgrind показыват 100500 ошибок
+
+И из них 0 утечек?
+
+`valgrind` может показывать читаете/записываете ли вы из/в память которая не была замалочена!
+
+Пример неправильного ft_strdup()
+
+
+```C
+#include <string.h>
+#include <stdlib.h>
+
+char *ft_strdup(char *str)
+{
+    char    *new_str;
+    size_t  str_len;
+    
+    str_len = strlen(str);
+    new_str = malloc(sizeof(*new_str) * str_len);
+    if (new_str == NULL)                             // *так выглядит защищенный маллок
+        return NULL;               
+    memcpy(new_str, str, str_len);
+    new_str[str_len] = '\0';
+    return (new_str);
+}
+
+int main()
+{
+    char *s;
+    
+    s = ft_strdup("Hello World!");
+    return (0);
+}
+```
+
+Посмотрим, что нам выведет valgrind:
+
+<div>
+  <img src="./imgs/leaks_step8.png" width="200">
+</div>
+<br>
+
+Invalid write в ft_strdup(), да еще и что-то утекло! 
+
+Invalid write появляется когда мы пытаемся записать что-то в незамаллоченную память.
+
+Смотрим код - там действительно ошибка. Исправляем...
+
+```C
+#include <string.h>
+#include <stdlib.h>
+
+char *ft_strdup(char *str)
+{
+    char    *new_str;
+    size_t  str_len;
+    
+    str_len = strlen(str);
+    new_str = malloc(sizeof(*new_str) * (str_len + 1));      // исправили ошибку выделения памяти
+    if (new_str == NULL)                                   
+        return NULL;               
+    memcpy(new_str, str, str_len);
+    new_str[str_len] = '\0';        // Invalid write был тут. Мы записывали 0 в незамоллоченное место
+    return (new_str);
+}
+
+int main()
+{
+    char *s;
+    
+    s = ft_strdup("Hello World!");
+    return (0);
+}
+```
+
+Проверяем 
+
+<div>
+  <img src="./imgs/leaks_step9.png" width="200">
+</div>
+<br>
+
+Утечка памяти осталась, хотя мы знаем, что строковые литералы (аргумент, который мы передаем в ft_strdup) не могут течь. Валгрнид и вправду иногда ошибается по поводу утечек памяти, но ошибки он ловит хорошо. Обращайте на них внимание!
+
+Успехов в скоростной сдаче проектов!
