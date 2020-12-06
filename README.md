@@ -6,6 +6,8 @@
 
 [leaks](./leaks/LEAKS.md)
 
+[pointers](./poiners_mnemonic/POINTERS_MNEMONIC.md)
+
 ## Что такое?
 
 Небольшие топики о разных темах языка Си (возможно в будущем и С++). 
